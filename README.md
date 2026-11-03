@@ -1,2 +1,2 @@
 # Codyssey
-Codyssey에서 사용할 저장소
+Codyssey에서 사용할 저장소입니다.

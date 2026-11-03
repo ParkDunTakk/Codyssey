@@ -1,0 +1,1124 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>영화 티어리스트</title>
+<style>
+  :root {
+    --bg: #f5f6fb;
+    --panel: #ffffff;
+    --text: #1f2430;
+    --muted: #6b7280;
+    --line: #e2e5ee;
+    --accent: #4f46e5;
+    --cw: 84px;   /* 카드 너비 */
+    --ch: 126px;  /* 카드 높이 */
+    --label-w: 78px;
+  }
+  @media (max-width: 640px) {
+    :root { --cw: 66px; --ch: 99px; --label-w: 54px; }
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", system-ui, -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.5;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  body.is-dragging, body.is-dragging * {
+    cursor: grabbing !important;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* ---------- 상단 ---------- */
+  .topbar {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 20px 16px 12px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  h1 { margin: 0; font-size: 26px; letter-spacing: -0.02em; }
+  .sub { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+  .hint-touch { display: none; }
+  @media (hover: none) and (pointer: coarse) {
+    .hint-mouse { display: none; }
+    .hint-touch { display: inline; }
+  }
+  .actions { display: flex; gap: 8px; }
+  .btn {
+    appearance: none;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--text);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 10px 16px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background .15s, transform .05s, box-shadow .15s;
+  }
+  .btn:hover { background: #f1f3fa; }
+  .btn:active { transform: translateY(1px); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover { background: #4338ca; }
+  .btn:disabled { opacity: .6; cursor: wait; }
+
+  /* ---------- 레이아웃 ---------- */
+  .layout {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 4px 16px 48px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: 16px;
+    align-items: start;
+  }
+  @media (max-width: 960px) {
+    .layout { grid-template-columns: minmax(0, 1fr); }
+  }
+  @media (max-width: 640px) {
+    .topbar { padding: 14px 12px 8px; }
+    .layout { padding: 4px 10px 40px; }
+    h1 { font-size: 22px; }
+  }
+
+  /* ---------- 티어 표 ---------- */
+  .tier-row {
+    display: flex;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 8px;
+    box-shadow: 0 1px 2px rgba(20, 24, 40, .04);
+  }
+  .tier-label {
+    flex: 0 0 var(--label-w);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    color: #fff;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .tier-label.shadow { text-shadow: 0 1px 4px rgba(0, 0, 0, .4); }
+  .tier-label.shine {
+    background-size: 220% 220% !important;
+    animation: shine 7s ease-in-out infinite;
+  }
+  @keyframes shine {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tier-label.shine { animation: none; }
+  }
+  @media (max-width: 640px) {
+    .tier-label { font-size: 21px; }
+  }
+
+  .drop-zone {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 6px;
+    padding: 8px;
+    min-height: calc(var(--ch) + 16px);
+    transition: background .15s;
+  }
+  .tier-row .drop-zone { flex: 1; min-width: 0; }
+  .drop-zone.over { background: #eef0ff; box-shadow: inset 0 0 0 2px var(--accent); }
+
+  /* ---------- 사이드(추가 + 대기열) ---------- */
+  .side {
+    position: sticky;
+    top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: calc(100vh - 24px);
+    overflow-y: auto;
+  }
+  @media (max-width: 960px) {
+    .side { position: static; max-height: none; overflow: visible; }
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 14px;
+  }
+  .panel h2 {
+    margin: 0 0 10px;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .count {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent);
+    background: #eef0ff;
+    border-radius: 999px;
+    padding: 1px 8px;
+  }
+  .pool {
+    border: 2px dashed var(--line);
+    border-radius: 12px;
+    background: #fafbff;
+  }
+  .pool:empty::before {
+    content: "대기 중인 영화가 없어요";
+    color: var(--muted);
+    font-size: 13px;
+    margin: auto;
+  }
+
+  form.add { display: flex; flex-direction: column; gap: 8px; }
+  form.add label { font-size: 12px; font-weight: 700; color: var(--muted); display: block; margin-bottom: 2px; }
+  form.add input {
+    width: 100%;
+    font: inherit;
+    font-size: 16px; /* iOS 확대 방지 */
+    padding: 9px 11px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--text);
+  }
+  form.add input:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
+  .help { margin: 0; font-size: 12px; color: var(--muted); }
+
+  /* ---------- 영화 카드 ---------- */
+  .card {
+    position: relative;
+    flex: 0 0 auto;
+    width: var(--cw);
+    height: var(--ch);
+    border-radius: 8px;
+    overflow: hidden;
+    background: #d9dce6;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .25);
+    cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    pointer-events: none;
+    -webkit-user-drag: none;
+  }
+  .card.noimg {
+    background: linear-gradient(135deg, hsl(var(--h) 62% 58%), hsl(calc(var(--h) + 40) 62% 38%));
+  }
+  .card .ph {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-bottom: 20px;
+    font-size: 30px;
+    font-weight: 800;
+    color: rgba(255, 255, 255, .88);
+    pointer-events: none;
+  }
+  .card .cap {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    padding: 16px 4px 4px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.25;
+    color: #fff;
+    text-align: center;
+    background: linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,.82));
+    pointer-events: none;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+  .card .cap span {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  @media (max-width: 640px) { .card .cap { font-size: 10px; } }
+  .card .del {
+    position: absolute;
+    top: 3px; right: 3px;
+    width: 22px; height: 22px;
+    border: 0;
+    border-radius: 50%;
+    padding: 0;
+    background: rgba(0, 0, 0, .65);
+    color: #fff;
+    font-size: 14px;
+    line-height: 22px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity .12s;
+  }
+  .card:hover .del { opacity: 1; }
+  @media (hover: none) { .card .del { opacity: .85; } }
+
+  .placeholder {
+    flex: 0 0 auto;
+    width: var(--cw);
+    height: var(--ch);
+    border-radius: 8px;
+    border: 2px dashed var(--accent);
+    background: rgba(79, 70, 229, .09);
+  }
+  .ghost {
+    position: fixed;
+    z-index: 9999;
+    margin: 0;
+    pointer-events: none;
+    opacity: .95;
+    transform: scale(1.1) rotate(3deg);
+    box-shadow: 0 14px 30px rgba(0, 0, 0, .4);
+    cursor: grabbing;
+  }
+
+  /* ---------- 토스트 ---------- */
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: calc(24px + env(safe-area-inset-bottom));
+    transform: translate(-50%, 20px);
+    max-width: calc(100vw - 32px);
+    background: rgba(31, 36, 48, .94);
+    color: #fff;
+    font-size: 14px;
+    padding: 11px 18px;
+    border-radius: 12px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s, transform .2s;
+    z-index: 10000;
+    text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div>
+    <h1>🎬 내 영화 티어리스트</h1>
+    <p class="sub">
+      <span class="hint-mouse">포스터를 마우스로 끌어서 등급 칸에 놓아보세요.</span>
+      <span class="hint-touch">포스터를 꾹 누른 채로 끌어서 등급 칸에 놓아보세요.</span>
+    </p>
+  </div>
+  <div class="actions">
+    <button type="button" class="btn primary" id="btn-download">이미지로 저장</button>
+    <button type="button" class="btn" id="btn-reset">초기화</button>
+  </div>
+</header>
+
+<noscript><p style="padding:16px">이 페이지는 JavaScript가 켜져 있어야 동작해요.</p></noscript>
+
+<main class="layout">
+  <section id="board" aria-label="티어 표"></section>
+
+  <aside class="side">
+    <section class="panel">
+      <h2>영화 추가하기</h2>
+      <form class="add" id="add-form" autocomplete="off">
+        <div>
+          <label for="in-title">영화 제목</label>
+          <input id="in-title" type="text" maxlength="40" placeholder="예) 올드보이">
+        </div>
+        <div>
+          <label for="in-url">포스터 이미지 주소 (URL)</label>
+          <input id="in-url" type="text" inputmode="url" placeholder="https://...">
+        </div>
+        <button type="submit" class="btn primary">대기열에 추가</button>
+        <p class="help">이미지 주소는 인터넷에서 이미지를 길게 눌러(또는 우클릭) ‘이미지 주소 복사’로 붙여넣으세요. 비워두면 제목만 있는 카드로 만들어져요.</p>
+      </form>
+    </section>
+
+    <section class="panel pool-wrap">
+      <h2>대기열 <span class="count" id="pool-count">0</span></h2>
+      <div class="drop-zone pool" id="pool" data-zone="pool"></div>
+    </section>
+  </aside>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* =========================================================
+   * 설정
+   * ========================================================= */
+
+  // 등급(티어) 11단계. 높은 등급일수록 화려하게(그라데이션), 모두 다른 색.
+  var TIERS = [
+    { id: 'S+', colors: ['#ff2d87', '#ff7a2b', '#ffc400'], fg: '#ffffff', shadow: true, shine: true },
+    { id: 'S',  colors: ['#ff3b3b', '#ff7a59'],            fg: '#ffffff', shadow: true },
+    { id: 'A+', colors: ['#ff8f00', '#ffb300'],            fg: '#ffffff', shadow: true },
+    { id: 'A',  colors: ['#d4dc00'],                       fg: '#3b3d00', shadow: false },
+    { id: 'B+', colors: ['#7ccf3a'],                       fg: '#ffffff', shadow: true },
+    { id: 'B',  colors: ['#2fbf71'],                       fg: '#ffffff', shadow: true },
+    { id: 'C+', colors: ['#16b6a8'],                       fg: '#ffffff', shadow: true },
+    { id: 'C',  colors: ['#2a9df4'],                       fg: '#ffffff', shadow: true },
+    { id: 'D+', colors: ['#5b6cf0'],                       fg: '#ffffff', shadow: true },
+    { id: 'D',  colors: ['#9a5be0'],                       fg: '#ffffff', shadow: true },
+    { id: 'F',  colors: ['#8a93a3'],                       fg: '#ffffff', shadow: true }
+  ];
+
+  // 기본 제공 영화 8편. 포스터 주소(url)를 바꾸고 싶으면 이 부분만 고치면 돼요.
+  function wiki(file) {
+    return 'https://en.wikipedia.org/wiki/Special:FilePath/' + encodeURIComponent(file) + '?width=300';
+  }
+  var DEFAULT_MOVIES = [
+    { id: 'm-parasite',     title: '기생충',               url: wiki('Parasite (2019 film).png') },
+    { id: 'm-interstellar', title: '인터스텔라',           url: wiki('Interstellar film poster.jpg') },
+    { id: 'm-lalaland',     title: '라라랜드',             url: wiki('La La Land (film).png') },
+    { id: 'm-spirited',     title: '센과 치히로의 행방불명', url: wiki('Spirited Away Japanese poster.png') },
+    { id: 'm-endgame',      title: '어벤져스: 엔드게임',   url: wiki('Avengers Endgame poster.jpg') },
+    { id: 'm-outlaws',      title: '범죄도시',             url: wiki('The Outlaws (2017 film).jpg') },
+    { id: 'm-titanic',      title: '타이타닉',             url: wiki('Titanic (1997 film) poster.png') },
+    { id: 'm-toystory',     title: '토이 스토리',          url: wiki('Toy Story.jpg') }
+  ];
+
+  var STORE_KEY = 'movie-tier-list:v1';
+  var FONT = "'Pretendard','Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',sans-serif";
+
+  /* =========================================================
+   * 상태 저장/불러오기
+   * ========================================================= */
+
+  var state = load();
+  var warnedStorage = false;
+
+  function defaultState() {
+    var movies = {};
+    var order = { pool: [] };
+    TIERS.forEach(function (t) { order[t.id] = []; });
+    DEFAULT_MOVIES.forEach(function (m) {
+      movies[m.id] = { id: m.id, title: m.title, url: m.url, custom: false };
+      order.pool.push(m.id);
+    });
+    return { movies: movies, order: order };
+  }
+
+  // 저장된 데이터가 깨져 있어도 안전하게 복구
+  function sanitize(s) {
+    if (!s || typeof s !== 'object' || !s.movies || !s.order) return null;
+    var movies = {};
+    Object.keys(s.movies).forEach(function (k) {
+      var m = s.movies[k];
+      if (m && typeof m.title === 'string' && m.title) {
+        movies[k] = {
+          id: k,
+          title: m.title.slice(0, 60),
+          url: typeof m.url === 'string' ? m.url : '',
+          custom: !!m.custom
+        };
+      }
+    });
+    var order = { pool: [] };
+    TIERS.forEach(function (t) { order[t.id] = []; });
+    var seen = {};
+    Object.keys(order).forEach(function (z) {
+      var arr = Array.isArray(s.order[z]) ? s.order[z] : [];
+      arr.forEach(function (id) {
+        if (movies[id] && !seen[id]) { seen[id] = true; order[z].push(id); }
+      });
+    });
+    Object.keys(movies).forEach(function (id) {
+      if (!seen[id]) order.pool.push(id);
+    });
+    return { movies: movies, order: order };
+  }
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(STORE_KEY);
+      if (raw) {
+        var s = sanitize(JSON.parse(raw));
+        if (s) return s;
+      }
+    } catch (e) { /* 저장소를 못 쓰는 환경이면 기본값 사용 */ }
+    return defaultState();
+  }
+
+  function save() {
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    } catch (e) {
+      if (!warnedStorage) {
+        warnedStorage = true;
+        toast('이 브라우저에서는 저장이 막혀 있어서, 창을 닫으면 결과가 사라질 수 있어요.');
+      }
+    }
+  }
+
+  /* =========================================================
+   * 유틸
+   * ========================================================= */
+
+  var toastTimer = null;
+  function toast(msg, ms) {
+    var el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.classList.remove('show'); }, ms || 2800);
+  }
+
+  function hueOf(str) {
+    var h = 0;
+    for (var i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) % 360;
+    return h;
+  }
+
+  function tierGradientCss(t) {
+    return t.colors.length > 1
+      ? 'linear-gradient(135deg, ' + t.colors.join(', ') + ')'
+      : t.colors[0];
+  }
+
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+
+  /* =========================================================
+   * 화면 그리기
+   * ========================================================= */
+
+  var boardEl = document.getElementById('board');
+  var poolEl = document.getElementById('pool');
+  var countEl = document.getElementById('pool-count');
+
+  function makePlaceholderLetter(title) {
+    var ph = document.createElement('div');
+    ph.className = 'ph';
+    ph.textContent = Array.from(title)[0] || '?';
+    return ph;
+  }
+
+  function makeCard(id) {
+    var m = state.movies[id];
+    var card = document.createElement('div');
+    card.className = 'card';
+    card.dataset.id = id;
+    card.title = m.title;
+    card.style.setProperty('--h', hueOf(m.title));
+
+    if (m.url) {
+      var img = new Image();
+      img.alt = m.title;
+      img.draggable = false;
+      img.decoding = 'async';
+      img.referrerPolicy = 'no-referrer';
+      img.addEventListener('error', function () {
+        if (img.parentNode) img.remove();
+        card.classList.add('noimg');
+        card.insertBefore(makePlaceholderLetter(m.title), card.firstChild);
+      });
+      img.src = m.url;
+      card.appendChild(img);
+    } else {
+      card.classList.add('noimg');
+      card.appendChild(makePlaceholderLetter(m.title));
+    }
+
+    var cap = document.createElement('div');
+    cap.className = 'cap';
+    var span = document.createElement('span');
+    span.textContent = m.title;
+    cap.appendChild(span);
+    card.appendChild(cap);
+
+    var del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'del';
+    del.setAttribute('aria-label', m.title + ' 삭제');
+    del.textContent = '×';
+    card.appendChild(del);
+
+    return card;
+  }
+
+  function render() {
+    boardEl.innerHTML = '';
+    TIERS.forEach(function (t) {
+      var row = document.createElement('div');
+      row.className = 'tier-row';
+
+      var label = document.createElement('div');
+      label.className = 'tier-label' + (t.shadow ? ' shadow' : '') + (t.shine ? ' shine' : '');
+      label.style.background = tierGradientCss(t);
+      label.style.color = t.fg;
+      label.textContent = t.id;
+
+      var zone = document.createElement('div');
+      zone.className = 'drop-zone';
+      zone.dataset.zone = t.id;
+      state.order[t.id].forEach(function (id) { zone.appendChild(makeCard(id)); });
+
+      row.appendChild(label);
+      row.appendChild(zone);
+      boardEl.appendChild(row);
+    });
+
+    poolEl.innerHTML = '';
+    state.order.pool.forEach(function (id) { poolEl.appendChild(makeCard(id)); });
+    countEl.textContent = state.order.pool.length;
+  }
+
+  /* =========================================================
+   * 드래그 앤 드롭 (마우스 + 터치 공통, Pointer Events)
+   *  - 마우스: 5px 이상 움직이면 드래그 시작
+   *  - 터치: 꾹 누르면(약 0.22초) 드래그 시작, 그 전에 움직이면 화면 스크롤
+   * ========================================================= */
+
+  var drag = null;
+
+  document.addEventListener('pointerdown', function (e) {
+    if (drag) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    if (!e.target.closest) return;
+    if (e.target.closest('.del')) return;
+    var card = e.target.closest('.card');
+    if (!card) return;
+
+    drag = {
+      id: card.dataset.id,
+      card: card,
+      pointerId: e.pointerId,
+      type: e.pointerType,
+      startX: e.clientX, startY: e.clientY,
+      x: e.clientX, y: e.clientY,
+      active: false,
+      zone: null, ghost: null, ph: null,
+      offX: 0, offY: 0,
+      timer: null, raf: 0
+    };
+
+    if (e.pointerType === 'mouse') {
+      e.preventDefault(); // 글자 선택 방지
+    } else {
+      drag.timer = setTimeout(function () {
+        if (drag && !drag.active) {
+          startDrag();
+          if (navigator.vibrate) { try { navigator.vibrate(12); } catch (err) {} }
+        }
+      }, 220);
+    }
+  });
+
+  document.addEventListener('pointermove', function (e) {
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    drag.x = e.clientX;
+    drag.y = e.clientY;
+
+    if (!drag.active) {
+      var dist = Math.hypot(drag.x - drag.startX, drag.y - drag.startY);
+      if (drag.type === 'mouse') {
+        if (dist > 5) startDrag();
+      } else if (dist > 10) {
+        // 꾹 누르기 전에 움직임 → 스크롤 의도이므로 드래그 취소
+        cleanup();
+      }
+      return;
+    }
+    updateTarget();
+  });
+
+  document.addEventListener('pointerup', function (e) {
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    drag.x = e.clientX;
+    drag.y = e.clientY;
+    if (drag.active) updateTarget();
+    finish(true);
+  });
+
+  document.addEventListener('pointercancel', function (e) {
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    finish(false);
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && drag) finish(false);
+  });
+
+  // 드래그 중에는 터치 스크롤을 막는다
+  document.addEventListener('touchmove', function (e) {
+    if (drag && drag.active && e.cancelable) e.preventDefault();
+  }, { passive: false });
+
+  // 브라우저 기본 드래그/길게 누르기 메뉴 방지
+  document.addEventListener('dragstart', function (e) {
+    if (e.target.closest && e.target.closest('.card')) e.preventDefault();
+  });
+  document.addEventListener('contextmenu', function (e) {
+    if (e.target.closest && e.target.closest('.card')) e.preventDefault();
+  });
+
+  function startDrag() {
+    var d = drag;
+    if (!d || d.active) return;
+    clearTimeout(d.timer);
+    d.active = true;
+
+    var rect = d.card.getBoundingClientRect();
+    d.offX = d.startX - rect.left;
+    d.offY = d.startY - rect.top;
+
+    var ghost = d.card.cloneNode(true);
+    ghost.classList.add('ghost');
+    var delBtn = ghost.querySelector('.del');
+    if (delBtn) delBtn.remove();
+    ghost.style.width = rect.width + 'px';
+    ghost.style.height = rect.height + 'px';
+    ghost.style.transformOrigin = d.offX + 'px ' + d.offY + 'px';
+    document.body.appendChild(ghost);
+    d.ghost = ghost;
+
+    // 원래 자리에는 점선 칸을 남기고 카드는 숨김
+    var ph = document.createElement('div');
+    ph.className = 'placeholder';
+    d.card.parentNode.insertBefore(ph, d.card);
+    d.card.style.display = 'none';
+    d.ph = ph;
+    d.zone = ph.parentNode;
+    d.zone.classList.add('over');
+
+    document.body.classList.add('is-dragging');
+    try { d.card.setPointerCapture(d.pointerId); } catch (err) {}
+
+    updateTarget();
+    d.raf = requestAnimationFrame(autoScrollLoop);
+  }
+
+  function updateTarget() {
+    var d = drag;
+    if (!d || !d.active) return;
+
+    d.ghost.style.left = (d.x - d.offX) + 'px';
+    d.ghost.style.top = (d.y - d.offY) + 'px';
+
+    var under = document.elementFromPoint(d.x, d.y);
+    var zone = null;
+    if (under && under.closest) {
+      var holder = under.closest('.drop-zone, .tier-row, .pool-wrap');
+      if (holder) {
+        zone = holder.classList.contains('drop-zone') ? holder : holder.querySelector('.drop-zone');
+      }
+    }
+
+    if (d.zone && d.zone !== zone) d.zone.classList.remove('over');
+    d.zone = zone;
+
+    if (!zone) {
+      if (d.ph.parentNode) d.ph.remove();
+      return;
+    }
+    zone.classList.add('over');
+
+    // 포인터 위치 기준으로 끼워 넣을 자리 계산
+    var ref = null;
+    var kids = Array.prototype.filter.call(zone.children, function (c) {
+      return c !== d.ph && c !== d.card;
+    });
+    for (var i = 0; i < kids.length; i++) {
+      var r = kids[i].getBoundingClientRect();
+      if (d.y < r.top || (d.y < r.bottom && d.x < r.left + r.width / 2)) {
+        ref = kids[i];
+        break;
+      }
+    }
+    var next = d.ph.nextSibling;
+    while (next === d.card) next = next.nextSibling;
+    if (d.ph.parentNode !== zone || next !== ref) {
+      zone.insertBefore(d.ph, ref);
+    }
+  }
+
+  // 화면 위/아래 가장자리에 가져가면 자동 스크롤
+  function autoScrollLoop() {
+    var d = drag;
+    if (!d || !d.active) return;
+    var edge = 80, v = 0, h = window.innerHeight;
+    if (d.y < edge) v = -Math.ceil((edge - d.y) / 6);
+    else if (d.y > h - edge) v = Math.ceil((d.y - (h - edge)) / 6);
+    if (v) {
+      window.scrollBy(0, v);
+      updateTarget();
+    }
+    d.raf = requestAnimationFrame(autoScrollLoop);
+  }
+
+  function cleanup() {
+    var d = drag;
+    if (!d) return;
+    clearTimeout(d.timer);
+    if (d.raf) cancelAnimationFrame(d.raf);
+    if (d.ghost && d.ghost.parentNode) d.ghost.remove();
+    if (d.ph && d.ph.parentNode) d.ph.remove();
+    if (d.card) d.card.style.display = '';
+    if (d.zone) d.zone.classList.remove('over');
+    document.querySelectorAll('.drop-zone.over').forEach(function (z) { z.classList.remove('over'); });
+    document.body.classList.remove('is-dragging');
+    try { d.card.releasePointerCapture(d.pointerId); } catch (err) {}
+    drag = null;
+  }
+
+  function finish(commit) {
+    var d = drag;
+    if (!d) return;
+    if (!d.active) { cleanup(); return; }
+
+    if (commit && d.zone && d.ph.parentNode === d.zone) {
+      var zoneId = d.zone.dataset.zone;
+      var ids = [];
+      Array.prototype.forEach.call(d.zone.children, function (c) {
+        if (c === d.ph) ids.push(d.id);
+        else if (c !== d.card && c.dataset && c.dataset.id) ids.push(c.dataset.id);
+      });
+      Object.keys(state.order).forEach(function (z) {
+        state.order[z] = state.order[z].filter(function (x) { return x !== d.id; });
+      });
+      state.order[zoneId] = ids;
+      save();
+    }
+    cleanup();
+    render();
+  }
+
+  /* =========================================================
+   * 영화 삭제 / 추가 / 초기화
+   * ========================================================= */
+
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest && e.target.closest('.del');
+    if (!btn) return;
+    var card = btn.closest('.card');
+    if (!card) return;
+    var m = state.movies[card.dataset.id];
+    if (!m) return;
+    if (!confirm('“' + m.title + '” 카드를 삭제할까요?\n(‘초기화’를 누르면 기본 영화는 다시 돌아와요.)')) return;
+    Object.keys(state.order).forEach(function (z) {
+      state.order[z] = state.order[z].filter(function (x) { return x !== m.id; });
+    });
+    delete state.movies[m.id];
+    save();
+    render();
+  });
+
+  document.getElementById('add-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var titleEl = document.getElementById('in-title');
+    var urlEl = document.getElementById('in-url');
+    var title = titleEl.value.trim();
+    var url = urlEl.value.trim();
+
+    if (!title) {
+      toast('영화 제목을 입력해 주세요.');
+      titleEl.focus();
+      return;
+    }
+    if (url && !/^(https?:\/\/|data:image\/)/i.test(url)) {
+      toast('이미지 주소는 http:// 또는 https:// 로 시작해야 해요.');
+      urlEl.focus();
+      return;
+    }
+
+    var id = 'u-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    state.movies[id] = { id: id, title: title, url: url, custom: true };
+    state.order.pool.push(id);
+    save();
+    render();
+    titleEl.value = '';
+    urlEl.value = '';
+    toast('“' + title + '” 추가 완료! 대기열에서 끌어서 배치해 보세요.');
+  });
+
+  document.getElementById('btn-reset').addEventListener('click', function () {
+    if (!confirm('모든 분류가 처음 상태로 돌아가고, 직접 추가한 영화도 사라져요.\n초기화할까요?')) return;
+    state = defaultState();
+    save();
+    render();
+    toast('처음 상태로 되돌렸어요.');
+  });
+
+  /* =========================================================
+   * 이미지로 저장 (캔버스에 직접 그려서 PNG로 내려받기)
+   * ========================================================= */
+
+  function loadImage(url) {
+    return new Promise(function (resolve) {
+      var im = new Image();
+      var done = false;
+      var t = setTimeout(function () { if (!done) { done = true; resolve(null); } }, 10000);
+      im.crossOrigin = 'anonymous';
+      im.referrerPolicy = 'no-referrer';
+      im.onload = function () { if (!done) { done = true; clearTimeout(t); resolve(im); } };
+      im.onerror = function () { if (!done) { done = true; clearTimeout(t); resolve(null); } };
+      im.src = url;
+    });
+  }
+
+  function roundRectPath(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function drawCover(ctx, img, x, y, w, h) {
+    var iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+    var ir = iw / ih, r = w / h, sx, sy, sw, sh;
+    if (ir > r) { sh = ih; sw = sh * r; sx = (iw - sw) / 2; sy = 0; }
+    else { sw = iw; sh = sw / r; sx = 0; sy = (ih - sh) / 2; }
+    ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+  }
+
+  function wrapLines(ctx, text, maxW, maxLines) {
+    var words = text.split(/\s+/).filter(Boolean);
+    var lines = [], cur = '';
+    function pushLong(word) {
+      var chunk = '';
+      Array.from(word).forEach(function (ch) {
+        if (ctx.measureText(chunk + ch).width > maxW && chunk) { lines.push(chunk); chunk = ch; }
+        else chunk += ch;
+      });
+      cur = chunk;
+    }
+    words.forEach(function (w) {
+      var trial = cur ? cur + ' ' + w : w;
+      if (ctx.measureText(trial).width <= maxW) { cur = trial; return; }
+      if (cur) { lines.push(cur); cur = ''; }
+      if (ctx.measureText(w).width > maxW) pushLong(w); else cur = w;
+    });
+    if (cur) lines.push(cur);
+    if (lines.length > maxLines) {
+      lines = lines.slice(0, maxLines);
+      var last = lines[maxLines - 1];
+      while (last.length > 1 && ctx.measureText(last + '…').width > maxW) last = last.slice(0, -1);
+      lines[maxLines - 1] = last + '…';
+    }
+    return lines;
+  }
+
+  var exporting = false;
+  async function exportImage() {
+    if (exporting) return;
+    var btn = document.getElementById('btn-download');
+
+    var placed = [];
+    TIERS.forEach(function (t) { state.order[t.id].forEach(function (id) { placed.push(id); }); });
+    if (!placed.length) {
+      toast('아직 티어에 놓인 영화가 없어요. 영화를 끌어서 배치해 보세요.');
+      return;
+    }
+
+    exporting = true;
+    btn.disabled = true;
+    var oldText = btn.textContent;
+    btn.textContent = '만드는 중…';
+
+    try {
+      // 포스터 이미지 불러오기 (보안상 못 불러오면 제목 카드로 대체)
+      var imgs = {};
+      var failed = 0;
+      await Promise.all(placed.map(async function (id) {
+        var m = state.movies[id];
+        if (!m.url) return;
+        var im = await loadImage(m.url);
+        if (im) imgs[id] = im; else failed++;
+      }));
+
+      var SCALE = 2;
+      var W = 1000, PAD = 20, HEADER = 64, LABEL_W = 100, INNER = 12, GAP = 6, ROW_GAP = 8;
+      var CW = 84, CH = 126;
+      var innerW = W - PAD * 2 - LABEL_W - INNER * 2;
+      var perRow = Math.max(1, Math.floor((innerW + GAP) / (CW + GAP)));
+
+      var rowHeights = TIERS.map(function (t) {
+        var n = state.order[t.id].length;
+        var lines = Math.max(1, Math.ceil(n / perRow));
+        return lines * CH + (lines - 1) * GAP + INNER * 2;
+      });
+      var totalH = PAD + HEADER + rowHeights.reduce(function (a, b) { return a + b; }, 0) +
+        ROW_GAP * (TIERS.length - 1) + PAD;
+
+      var canvas = document.createElement('canvas');
+      canvas.width = W * SCALE;
+      canvas.height = totalH * SCALE;
+      var ctx = canvas.getContext('2d');
+      ctx.scale(SCALE, SCALE);
+      ctx.textBaseline = 'alphabetic';
+
+      // 배경
+      ctx.fillStyle = '#f5f6fb';
+      ctx.fillRect(0, 0, W, totalH);
+
+      // 제목
+      ctx.fillStyle = '#1f2430';
+      ctx.font = '800 28px ' + FONT;
+      ctx.textAlign = 'left';
+      ctx.fillText('내 영화 티어리스트', PAD, PAD + 34);
+      var now = new Date();
+      ctx.fillStyle = '#6b7280';
+      ctx.font = '500 14px ' + FONT;
+      ctx.textAlign = 'right';
+      ctx.fillText(now.getFullYear() + '. ' + (now.getMonth() + 1) + '. ' + now.getDate(), W - PAD, PAD + 32);
+
+      var y = PAD + HEADER;
+      TIERS.forEach(function (t, ti) {
+        var rh = rowHeights[ti];
+        var x = PAD, w = W - PAD * 2;
+
+        // 행 배경 + 테두리
+        ctx.save();
+        roundRectPath(ctx, x, y, w, rh, 12);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+        ctx.clip();
+
+        // 라벨(그라데이션)
+        var g = ctx.createLinearGradient(x, y, x + LABEL_W, y + rh);
+        t.colors.forEach(function (c, i) {
+          g.addColorStop(t.colors.length === 1 ? 0 : i / (t.colors.length - 1), c);
+        });
+        ctx.fillStyle = g;
+        ctx.fillRect(x, y, LABEL_W, rh);
+        ctx.restore();
+
+        ctx.save();
+        roundRectPath(ctx, x + 0.5, y + 0.5, w - 1, rh - 1, 12);
+        ctx.strokeStyle = '#e2e5ee';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.restore();
+
+        // 라벨 글자
+        ctx.save();
+        ctx.fillStyle = t.fg;
+        ctx.font = '900 ' + (t.id.length > 1 ? 36 : 42) + 'px ' + FONT;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        if (t.shadow) {
+          ctx.shadowColor = 'rgba(0,0,0,.35)';
+          ctx.shadowBlur = 4;
+          ctx.shadowOffsetY = 1;
+        }
+        ctx.fillText(t.id, x + LABEL_W / 2, y + rh / 2 + 1);
+        ctx.restore();
+
+        // 카드들
+        var x0 = x + LABEL_W + INNER;
+        state.order[t.id].forEach(function (id, i) {
+          var m = state.movies[id];
+          var col = i % perRow, row = Math.floor(i / perRow);
+          var cx = x0 + col * (CW + GAP);
+          var cy = y + INNER + row * (CH + GAP);
+
+          ctx.save();
+          roundRectPath(ctx, cx, cy, CW, CH, 8);
+          ctx.clip();
+
+          if (imgs[id]) {
+            drawCover(ctx, imgs[id], cx, cy, CW, CH);
+          } else {
+            var hue = hueOf(m.title);
+            var pg = ctx.createLinearGradient(cx, cy, cx + CW, cy + CH);
+            pg.addColorStop(0, 'hsl(' + hue + ',62%,58%)');
+            pg.addColorStop(1, 'hsl(' + ((hue + 40) % 360) + ',62%,38%)');
+            ctx.fillStyle = pg;
+            ctx.fillRect(cx, cy, CW, CH);
+            ctx.fillStyle = 'rgba(255,255,255,.88)';
+            ctx.font = '800 32px ' + FONT;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(Array.from(m.title)[0] || '?', cx + CW / 2, cy + CH / 2 - 12);
+          }
+
+          // 제목 캡션
+          var cg = ctx.createLinearGradient(0, cy + CH - 50, 0, cy + CH);
+          cg.addColorStop(0, 'rgba(0,0,0,0)');
+          cg.addColorStop(1, 'rgba(0,0,0,.82)');
+          ctx.fillStyle = cg;
+          ctx.fillRect(cx, cy + CH - 50, CW, 50);
+
+          ctx.fillStyle = '#ffffff';
+          ctx.font = '700 11px ' + FONT;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'alphabetic';
+          var lines = wrapLines(ctx, m.title, CW - 8, 2);
+          var ly = cy + CH - 6 - (lines.length - 1) * 13;
+          lines.forEach(function (ln, li) {
+            ctx.fillText(ln, cx + CW / 2, ly + li * 13);
+          });
+          ctx.restore();
+        });
+
+        y += rh + ROW_GAP;
+      });
+
+      var blob = await new Promise(function (resolve) { canvas.toBlob(resolve, 'image/png'); });
+      if (!blob) throw new Error('이미지 생성 실패');
+
+      var a = document.createElement('a');
+      var href = URL.createObjectURL(blob);
+      a.href = href;
+      a.download = '영화_티어리스트_' + now.getFullYear() + pad2(now.getMonth() + 1) + pad2(now.getDate()) + '.png';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(function () { URL.revokeObjectURL(href); }, 5000);
+
+      if (failed) {
+        toast('저장했어요! 다만 포스터 ' + failed + '개는 불러올 수 없어 제목 카드로 대체됐어요.', 4500);
+      } else {
+        toast('티어표 이미지를 저장했어요!');
+      }
+    } catch (err) {
+      toast('이미지를 만드는 중 문제가 생겼어요. 다시 시도해 주세요.');
+    } finally {
+      exporting = false;
+      btn.disabled = false;
+      btn.textContent = oldText;
+    }
+  }
+
+  document.getElementById('btn-download').addEventListener('click', exportImage);
+
+  /* =========================================================
+   * 시작
+   * ========================================================= */
+  render();
+})();
+</script>
+</body>
+</html>

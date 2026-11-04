@@ -76,9 +76,9 @@
       showMessage((item.title || '영화') + '를 옮겼어요.');
     }
     function card(item,index) {
-      const element = document.createElement('button');
-      element.type = 'button'; element.className = 'card'; element.draggable = true;
-      element.dataset.id = item.id; element.textContent = item.title;
+      const template = document.createElement('template');
+      template.innerHTML = '<button type="button" class="card" draggable="true" data-id="' + item.id + '"">' + item.title + '</button>';
+      const element = template.content.firstElementChild;
       element.style.backgroundColor = COLORS[index % COLORS.length];
       element.setAttribute('aria-pressed',String(selected === element.dataset.id));
       element.addEventListener('click',event => {

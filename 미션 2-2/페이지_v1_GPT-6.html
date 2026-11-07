@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>문서편집실 — 파일 변환·병합·분할</title>
+<style>
+:root{
+  --bg:#f5f7fb;--panel:#fff;--ink:#20283a;--muted:#788196;--line:#e7ebf2;
+  --blue:#526df5;--blue2:#edf0ff;--mint:#18a889;--mintbg:#e9f8f4;
+  --red:#df5b68;--shadow:0 16px 45px rgba(34,48,84,.08);--radius:20px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif}
+button,input{font:inherit}
+button{cursor:pointer}
+.app{max-width:1120px;margin:0 auto;padding:34px 28px 60px}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:42px}
+.brand{display:flex;align-items:center;gap:12px;font-weight:800;font-size:19px;letter-spacing:-.6px}
+.logo{width:38px;height:38px;border-radius:13px;background:linear-gradient(145deg,#6f83ff,#526df5);display:grid;place-items:center;color:#fff;box-shadow:0 7px 16px #526df544}
+.logo svg{width:22px}
+.local-tag{font-size:12px;color:#64718a;background:#fff;border:1px solid var(--line);padding:8px 12px;border-radius:30px;display:flex;gap:7px;align-items:center}
+.dot{width:7px;height:7px;background:var(--mint);border-radius:50%}
+.hero{margin-bottom:26px}
+.eyebrow{font-size:12px;font-weight:800;color:var(--blue);letter-spacing:1.5px;margin-bottom:10px}
+h1{font-size:clamp(28px,4vw,39px);letter-spacing:-1.7px;margin:0 0 11px;line-height:1.25}
+.subtitle{color:var(--muted);font-size:15px;line-height:1.7;margin:0}
+.workspace{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(280px,.85fr);gap:20px;align-items:start}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.upload-panel{padding:22px}
+.panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:17px}
+.panel-title{font-weight:800;font-size:16px;letter-spacing:-.4px}
+.panel-caption{font-size:12px;color:var(--muted)}
+.dropzone{border:1.5px dashed #cbd3e5;background:#fafbff;border-radius:16px;min-height:190px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:22px;transition:.2s}
+.dropzone.drag{border-color:var(--blue);background:var(--blue2);transform:scale(.995)}
+.upload-icon{width:48px;height:48px;border-radius:16px;background:var(--blue2);color:var(--blue);display:grid;place-items:center;margin-bottom:13px}
+.upload-icon svg{width:24px}
+.drop-title{font-size:15px;font-weight:750;margin-bottom:7px}
+.drop-sub{font-size:12px;color:var(--muted);line-height:1.6}
+.primary{border:0;background:var(--blue);color:#fff;padding:11px 17px;border-radius:10px;font-weight:700;font-size:13px;margin-top:15px;box-shadow:0 6px 13px #526df52b}
+.primary:hover{background:#405be6}
+input[type=file]{display:none}
+.file-area{margin-top:20px}
+.file-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.file-head strong{font-size:13px}
+.text-button{border:0;background:none;color:var(--muted);font-size:12px;padding:5px}
+.text-button:hover{color:var(--red)}
+.file-list{display:flex;flex-direction:column;gap:8px}
+.empty{padding:20px;text-align:center;color:#a0a8b8;font-size:12px;border:1px solid var(--line);border-radius:12px}
+.file-row{display:flex;align-items:center;gap:11px;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:#fff}
+.file-row.selected{border-color:#aebaff;background:#fafaff}
+.file-icon{width:37px;height:40px;flex:none;border-radius:9px;background:#fff0f0;color:#e45b68;display:grid;place-items:center;font-size:10px;font-weight:900}
+.file-icon.doc{background:#edf3ff;color:#4775d8}.file-icon.img{background:#f1edff;color:#8064d8}.file-icon.txt{background:#eef3f5;color:#687a88}
+.file-info{min-width:0;flex:1}
+.file-name{font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.file-meta{font-size:11px;color:var(--muted);margin-top:4px}
+.file-actions{display:flex;gap:3px}
+.icon-btn{border:0;background:transparent;color:#929bad;border-radius:7px;width:28px;height:28px;font-size:16px}
+.icon-btn:hover{background:#f0f2f8;color:var(--ink)}
+.right-col{display:flex;flex-direction:column;gap:16px}
+.action-panel{padding:21px}
+.action-panel h2{font-size:15px;margin:0 0 5px;letter-spacing:-.4px}
+.action-desc{font-size:12px;color:var(--muted);line-height:1.55;margin:0 0 15px}
+.task-list{display:flex;flex-direction:column;gap:8px}
+.task{border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;align-items:center;gap:10px;text-align:left;background:#fff;width:100%;transition:.15s}
+.task:hover{border-color:#b8c3ff;background:#fafaff}
+.task.active{border-color:var(--blue);background:#f5f6ff;box-shadow:inset 0 0 0 1px var(--blue)}
+.task-ico{width:34px;height:34px;border-radius:10px;background:#f0f2f8;display:grid;place-items:center;font-size:16px}
+.task.active .task-ico{background:#e5e9ff}
+.task-copy{flex:1}
+.task-name{font-size:12px;font-weight:750}
+.task-note{font-size:10px;color:var(--muted);margin-top:3px}
+.chev{color:#a4adbd}
+.run-panel{padding:20px}
+.run-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.run-head strong{font-size:14px}
+.pill{font-size:10px;font-weight:700;padding:5px 8px;border-radius:20px;color:#65718b;background:#f0f2f7}
+.pill.ready{background:var(--mintbg);color:#14866e}
+.setting{padding:13px 0;border-top:1px solid var(--line)}
+.setting:first-of-type{border-top:0}
+.setting-label{font-size:12px;font-weight:750;margin-bottom:8px}
+.hint{font-size:11px;color:var(--muted);line-height:1.6}
+.range-input{width:100%;border:1px solid var(--line);border-radius:9px;padding:10px 11px;font-size:12px;outline:none}
+.range-input:focus{border-color:var(--blue)}
+.checkline{display:flex;align-items:center;gap:8px;font-size:12px;color:#526078;margin:8px 0}
+.checkline input{accent-color:var(--blue)}
+.run-button{width:100%;border:0;border-radius:11px;background:#dfe3ed;color:#9099aa;padding:13px;font-weight:800;font-size:13px;margin-top:12px}
+.run-button.enabled{background:var(--blue);color:white;box-shadow:0 7px 16px #526df52e}
+.notice{background:#fff9e9;border:1px solid #f2e5bd;color:#796537;border-radius:12px;padding:12px 13px;font-size:11px;line-height:1.65;margin-top:13px}
+.notice b{display:block;margin-bottom:3px}
+.info-panel{padding:17px 19px}
+.info-title{font-size:12px;font-weight:800;margin-bottom:7px}
+.info-text{font-size:11px;color:var(--muted);line-height:1.7}
+.status{margin-top:13px;padding:11px 12px;border-radius:10px;background:#f4f6fa;color:#788196;font-size:11px;line-height:1.6;display:none}
+.status.show{display:block}
+.status.error{background:#fff0f1;color:#b34450}
+.status.success{background:var(--mintbg);color:#147b66}
+.footer{margin-top:28px;text-align:center;color:#9aa2b2;font-size:11px;line-height:1.7}
+.modal-backdrop{position:fixed;inset:0;background:#17203966;display:none;align-items:center;justify-content:center;padding:20px;z-index:10}
+.modal-backdrop.show{display:flex}
+.modal{background:white;border-radius:18px;padding:24px;max-width:440px;width:100%;box-shadow:0 25px 70px #17203940}
+.modal h3{margin:0 0 10px;font-size:17px}
+.modal p{font-size:13px;color:#647087;line-height:1.7;margin:0 0 18px}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px}
+.secondary{border:1px solid var(--line);background:white;border-radius:9px;padding:10px 14px;font-size:12px;font-weight:700}
+@media(max-width:760px){.app{padding:22px 15px 40px}.topbar{margin-bottom:30px}.workspace{grid-template-columns:1fr}.right-col{display:grid;grid-template-columns:1fr}.upload-panel{padding:16px}.dropzone{min-height:170px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8.5 7 3l5 4 5-4 2 5.5"/><path d="M4 9.5h16v8a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3z"/><path d="M9 14h.01M15 14h.01M10 17h4"/></svg></div>
+      문서편집실
+    </div>
+    <div class="local-tag"><span class="dot"></span> 브라우저에서 실행</div>
+  </header>
+
+  <section class="hero">
+    <div class="eyebrow">DOCUMENT WORKSPACE</div>
+    <h1>문서 작업을, 한 곳에서 간편하게.</h1>
+    <p class="subtitle">파일을 올리면 가능한 작업을 확인할 수 있어요.<br>파일은 이 화면 안에서만 선택되며 별도 서버로 전송되지 않습니다.</p>
+  </section>
+
+  <main class="workspace">
+    <section class="panel upload-panel">
+      <div class="panel-head">
+        <div class="panel-title">파일 추가</div>
+        <div class="panel-caption">최대 10개 · 파일당 제한은 브라우저 환경에 따름</div>
+      </div>
+      <div class="dropzone" id="dropzone">
+        <div class="upload-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m-5 5 5-5 5 5"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg></div>
+        <div class="drop-title">파일을 여기에 끌어다 놓으세요</div>
+        <div class="drop-sub">또는 아래 버튼을 눌러 내 컴퓨터에서 선택하세요.<br>PDF, HWP, HWPX, DOCX, DOC, TXT, PPT, PPTX, 이미지</div>
+        <button class="primary" id="chooseBtn">파일 선택하기</button>
+        <input type="file" id="fileInput" multiple accept=".pdf,.hwp,.hwpx,.doc,.docx,.txt,.ppt,.pptx,.webp,.png,.jpg,.jpeg,.gif">
+      </div>
+
+      <div class="file-area">
+        <div class="file-head"><strong>선택한 파일 <span id="fileCount">(0/10)</span></strong><button class="text-button" id="clearBtn">전체 삭제</button></div>
+        <div class="file-list" id="fileList"><div class="empty">아직 추가된 파일이 없습니다.</div></div>
+      </div>
+      <div class="status" id="status"></div>
+    </section>
+
+    <aside class="right-col">
+      <section class="panel action-panel">
+        <h2>가능한 작업</h2>
+        <p class="action-desc" id="actionDesc">파일을 추가하면 파일 형식에 맞는 작업을 표시합니다.</p>
+        <div class="task-list" id="taskList">
+          <div class="empty">파일을 먼저 추가해 주세요.</div>
+        </div>
+      </section>
+
+      <section class="panel run-panel">
+        <div class="run-head"><strong id="settingTitle">작업 설정</strong><span class="pill" id="taskPill">대기 중</span></div>
+        <div id="settings"><div class="hint">왼쪽에서 파일을 추가하고 작업을 선택하면 설정이 표시됩니다.</div></div>
+        <button class="run-button" id="runBtn" disabled>작업 실행</button>
+        <div class="notice"><b>실행 엔진 안내</b>이 단일 HTML은 화면과 파일 선택·정렬·쪽 선택 기능을 제공합니다. PDF/HWP의 실제 변환·병합·분할을 수행하는 문서 처리 엔진은 포함되어 있지 않습니다. 변환된 것처럼 가짜 파일을 만들지 않으며, 실행 시 필요한 환경을 안내합니다.</div>
+      </section>
+
+      <section class="panel info-panel">
+        <div class="info-title">개인정보 및 파일 보안</div>
+        <div class="info-text">이 페이지는 로그인이나 서버 연결을 사용하지 않습니다. 선택한 파일 목록은 현재 브라우저 탭의 메모리에만 유지되며, 페이지를 닫거나 새로고침하면 초기화됩니다.</div>
+      </section>
+    </aside>
+  </main>
+  <footer class="footer">문서편집실 · 개인용 로컬 프로토타입<br>실제 HWP 계열 변환은 한컴오피스 등 별도 변환 환경이 필요합니다.</footer>
+</div>
+
+<div class="modal-backdrop" id="modal">
+  <div class="modal">
+    <h3 id="modalTitle">실제 변환 기능 안내</h3>
+    <p id="modalText"></p>
+    <div class="modal-actions"><button class="secondary" id="modalClose">닫기</button></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const files = [];
+  let selectedTask = null;
+  let selectedSplitFile = null;
+  let splitPages = new Set();
+
+  const taskInfo = {
+    merge:{name:'PDF 병합',icon:'▤',note:'여러 PDF를 원하는 순서로 합치기'},
+    split:{name:'PDF 나누기',icon:'✂',note:'PDF에서 필요한 쪽만 선택하기'},
+    hwpPdf:{name:'HWP → PDF',icon:'⇢',note:'한글 문서를 PDF로 변환'},
+    hwpxHwp:{name:'HWPX → HWP',icon:'⇢',note:'한글 표준 문서를 HWP로 변환'},
+    pdfHwp:{name:'PDF → HWP',icon:'⇢',note:'PDF 내용을 한글 문서로 변환'}
+  };
+  const extOf = f => (f.name.split('.').pop() || '').toLowerCase();
+  const isPdf = f => extOf(f)==='pdf';
+  const isHwp = f => extOf(f)==='hwp';
+  const isHwpx = f => extOf(f)==='hwpx';
+  const formatSize = n => n < 1024*1024 ? (n/1024).toFixed(1)+' KB' : (n/1024/1024).toFixed(2)+' MB';
+
+  function showStatus(message, type='') {
+    const el=$('status'); el.textContent=message; el.className='status show '+type;
+  }
+  function hideStatus(){ $('status').className='status'; }
+
+  function addFiles(fileList) {
+    hideStatus();
+    const incoming=[...fileList];
+    let added=0, rejected=0;
+    for(const file of incoming){
+      if(files.length>=10){ rejected++; continue; }
+      if(files.some(x=>x.name===file.name && x.size===file.size)){ rejected++; continue; }
+      files.push(file); added++;
+    }
+    render();
+    if(rejected) showStatus(`일부 파일은 추가하지 않았습니다. 최대 10개까지 추가할 수 있고, 같은 이름·크기의 중복 파일은 제외됩니다.`, 'error');
+    else if(added) showStatus(`${added}개 파일을 안전하게 브라우저에 불러왔습니다.`, 'success');
+  }
+  function removeFile(index){
+    files.splice(index,1);
+    if(selectedSplitFile && !files.includes(selectedSplitFile)) selectedSplitFile=null;
+    selectedTask=null; render();
+  }
+  function moveFile(index,delta){
+    const next=index+delta;
+    if(next<0 || next>=files.length) return;
+    [files[index],files[next]]=[files[next],files[index]];
+    render();
+  }
+  function iconClass(ext){
+    if(ext==='pdf') return '';
+    if(['hwp','hwpx','doc','docx','ppt','pptx'].includes(ext)) return 'doc';
+    if(['png','jpg','jpeg','gif','webp'].includes(ext)) return 'img';
+    return 'txt';
+  }
+  function renderFiles(){
+    $('fileCount').textContent=`(${files.length}/10)`;
+    const list=$('fileList');
+    if(!files.length){list.innerHTML='<div class="empty">아직 추가된 파일이 없습니다.</div>';return;}
+    list.innerHTML='';
+    files.forEach((f,i)=>{
+      const ext=extOf(f);
+      const row=document.createElement('div'); row.className='file-row';
+      const ico=document.createElement('div'); ico.className='file-icon '+iconClass(ext); ico.textContent=ext.toUpperCase().slice(0,5);
+      const info=document.createElement('div'); info.className='file-info';
+      const name=document.createElement('div'); name.className='file-name'; name.textContent=f.name;
+      const meta=document.createElement('div'); meta.className='file-meta'; meta.textContent=formatSize(f.size);
+      info.append(name,meta);
+      const actions=document.createElement('div'); actions.className='file-actions';
+      const up=document.createElement('button'); up.className='icon-btn'; up.title='위로 이동'; up.textContent='↑'; up.disabled=i===0; up.onclick=()=>moveFile(i,-1);
+      const down=document.createElement('button'); down.className='icon-btn'; down.title='아래로 이동'; down.textContent='↓'; down.disabled=i===files.length-1; down.onclick=()=>moveFile(i,1);
+      const del=document.createElement('button'); del.className='icon-btn'; del.title='파일 삭제'; del.textContent='×'; del.onclick=()=>removeFile(i);
+      actions.append(up,down,del); row.append(ico,info,actions); list.append(row);
+    });
+  }
+  function availableTasks(){
+    const tasks=[];
+    if(files.filter(isPdf).length>=2) tasks.push('merge');
+    if(files.some(isPdf)) tasks.push('split');
+    if(files.some(isHwp)) tasks.push('hwpPdf');
+    if(files.some(isHwpx)) tasks.push('hwpxHwp');
+    if(files.some(isPdf)) tasks.push('pdfHwp');
+    return tasks;
+  }
+  function renderTasks(){
+    const list=$('taskList'), tasks=availableTasks();
+    list.innerHTML='';
+    if(!tasks.length){
+      list.innerHTML='<div class="empty">현재 파일 조합으로 가능한 1차 작업이 없습니다.</div>';
+      $('actionDesc').textContent='PDF, HWP 또는 HWPX 파일을 추가해 주세요.';
+      return;
+    }
+    $('actionDesc').textContent='파일 형식에 맞는 작업을 골라 주세요.';
+    tasks.forEach(key=>{
+      const t=taskInfo[key], b=document.createElement('button');
+      b.className='task'+(selectedTask===key?' active':'');
+      b.innerHTML=`<span class="task-ico">${t.icon}</span><span class="task-copy"><span class="task-name">${t.name}</span><span class="task-note">${t.note}</span></span><span class="chev">›</span>`;
+      b.onclick=()=>{selectedTask=key;render();};
+      list.append(b);
+    });
+  }
+  function renderSettings(){
+    const host=$('settings'); host.innerHTML='';
+    $('runBtn').disabled=true; $('runBtn').classList.remove('enabled');
+    $('taskPill').textContent=selectedTask?'설정 가능':'대기 중';
+    $('taskPill').className='pill'+(selectedTask?' ready':'');
+    $('settingTitle').textContent=selectedTask?taskInfo[selectedTask].name+' 설정':'작업 설정';
+    if(!selectedTask){host.innerHTML='<div class="hint">왼쪽에서 파일을 추가하고 작업을 선택하면 설정이 표시됩니다.</div>';return;}
+    if(selectedTask==='merge'){
+      const count=files.filter(isPdf).length;
+      host.innerHTML=`<div class="setting"><div class="setting-label">병합 순서</div><div class="hint">왼쪽 파일 목록의 ↑ ↓ 버튼으로 순서를 바꾸세요. PDF 파일 ${count}개가 현재 표시된 순서대로 병합 대상이 됩니다.</div></div>`;
+      setRunnable(count>=2);
+    } else if(selectedTask==='split'){
+      const pdfs=files.filter(isPdf);
+      const wrap=document.createElement('div'); wrap.className='setting';
+      const label=document.createElement('div'); label.className='setting-label'; label.textContent='나눌 PDF 선택';
+      const select=document.createElement('select'); select.className='range-input';
+      pdfs.forEach((f,i)=>{const o=document.createElement('option');o.value=String(i);o.textContent=f.name;select.append(o);});
+      if(selectedSplitFile && pdfs.includes(selectedSplitFile)) select.value=String(pdfs.indexOf(selectedSplitFile));
+      selectedSplitFile=pdfs[Number(select.value)]||pdfs[0];
+      select.onchange=()=>{selectedSplitFile=pdfs[Number(select.value)];splitPages.clear();renderSettings();};
+      const hint=document.createElement('div');hint.className='hint';hint.style.marginTop='9px';hint.textContent='페이지 수를 자동으로 읽을 수 있는 PDF 엔진이 연결되지 않아, 현재는 쪽 번호를 직접 입력하는 방식으로 설정을 미리 작성할 수 있습니다.';
+      const input=document.createElement('input');input.className='range-input';input.placeholder='예: 1-3, 5, 8-10';input.style.marginTop='10px';input.id='pageRanges';
+      input.value=window._pageRanges||'';
+      input.oninput=()=>{window._pageRanges=input.value;};
+      wrap.append(label,select,hint,input);host.append(wrap);
+      const rule=document.createElement('div');rule.className='setting hint';rule.textContent='입력 예시: 1-3, 5, 8-10 (원하는 쪽 번호 또는 범위)';host.append(rule);
+      setRunnable(!!selectedSplitFile && input.value.trim().length>0);
+      input.addEventListener('input',()=>setRunnable(input.value.trim().length>0));
+    } else {
+      const source=selectedTask==='hwpPdf'?'HWP':selectedTask==='hwpxHwp'?'HWPX':'PDF';
+      const target=selectedTask==='hwpPdf'?'PDF':selectedTask==='hwpxHwp'?'HWP':'HWP';
+      const text=selectedTask==='pdfHwp'
+        ? 'PDF의 글자와 표를 분석해 HWP로 재구성해야 합니다. 원본과 완전히 같은 모양을 보장하기 어렵고, 별도 변환 엔진과 품질 검증이 필요합니다.'
+        : `${source} 파일을 ${target} 파일로 바꾸려면 한컴오피스 또는 별도 문서 변환 엔진이 필요합니다. 브라우저 단독 HTML에서는 해당 형식을 직접 변환할 수 없습니다.`;
+      host.innerHTML=`<div class="setting"><div class="setting-label">변환 대상</div><div class="hint">${files.filter(f=>selectedTask==='hwpPdf'?isHwp(f):selectedTask==='hwpxHwp'?isHwpx(f):isPdf(f)).length}개 파일이 대상입니다.</div></div><div class="setting"><div class="hint">${text}</div></div>`;
+      setRunnable(true);
+    }
+  }
+  function setRunnable(ok){
+    $('runBtn').disabled=!ok;
+    $('runBtn').classList.toggle('enabled',!!ok);
+  }
+  function render(){renderFiles();renderTasks();renderSettings();}
+  function showModal(title,text){
+    $('modalTitle').textContent=title;$('modalText').textContent=text;$('modal').classList.add('show');
+  }
+  function runTask(){
+    if(!selectedTask)return;
+    const messages={
+      merge:'PDF 병합 설정은 준비됐습니다. 다만 이 단일 HTML에는 PDF 페이지를 실제로 읽고 새 PDF를 생성하는 라이브러리가 포함되어 있지 않습니다. 따라서 병합 파일을 생성하지 않았습니다. 오프라인 단독 실행을 유지하면서 실제 병합을 하려면 PDF 처리 라이브러리를 HTML 안에 함께 내장해야 합니다.',
+      split:'쪽 선택 설정은 입력됐습니다. 하지만 PDF 페이지를 실제로 추출하는 처리 엔진이 없어 분할 파일은 생성하지 않았습니다. PDF 처리 라이브러리를 HTML 안에 내장하면 브라우저 안에서 처리하도록 확장할 수 있습니다.',
+      hwpPdf:'HWP → PDF 변환은 브라우저 기본 기능만으로 수행할 수 없습니다. 한컴오피스가 설치된 윈도우 PC에서 한컴오피스 자동화 또는 로컬 변환 프로그램을 연결해야 합니다. 이 페이지는 원본 파일을 변경하지 않았습니다.',
+      hwpxHwp:'HWPX → HWP 변환은 한컴 문서 형식 변환 엔진이 필요합니다. 한컴오피스 또는 호환 변환기를 연결해야 하며, 이 페이지는 변환 파일을 생성하지 않았습니다.',
+      pdfHwp:'PDF → HWP는 글자·표·레이아웃을 분석해 문서로 재구성하는 과정이 필요합니다. 원본과 완전히 동일한 결과를 보장하기 어렵습니다. 이 페이지는 변환 파일을 생성하지 않았습니다.'
+    };
+    showModal('실제 처리 엔진이 필요합니다',messages[selectedTask]);
+    showStatus('설정은 확인했지만, 실제 변환·편집 엔진이 없어 결과 파일은 생성하지 않았습니다.','error');
+  }
+  $('chooseBtn').onclick=()=>$('fileInput').click();
+  $('fileInput').onchange=e=>{addFiles(e.target.files);e.target.value='';};
+  $('clearBtn').onclick=()=>{files.length=0;selectedTask=null;selectedSplitFile=null;window._pageRanges='';hideStatus();render();};
+  $('runBtn').onclick=runTask;
+  $('modalClose').onclick=()=>$('modal').classList.remove('show');
+  $('modal').onclick=e=>{if(e.target===$('modal'))$('modal').classList.remove('show');};
+  const dz=$('dropzone');
+  ['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('drag');}));
+  ['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('drag');}));
+  dz.addEventListener('drop',e=>addFiles(e.dataTransfer.files));
+  render();
+})();
+</script>
+</body>
+</html>
